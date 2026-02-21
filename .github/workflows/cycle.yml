@@ -57,4 +57,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DAIMON_WALLET_KEY: ${{ secrets.DAIMON_WALLET_KEY }}
           BASE_RPC: ${{ secrets.BASE_RPC }}
-        run: node agent/run.js
+        run: |
+          node -e "console.log('Node sees key:', process.env.OPENROUTER_API_KEY ? 'YES' : 'NO')"
+          node agent/run.js
