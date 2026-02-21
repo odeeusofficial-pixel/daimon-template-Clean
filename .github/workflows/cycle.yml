@@ -41,15 +41,15 @@ jobs:
       - name: install dependencies
         run: npm ci --ignore-scripts
 
-       - name: Debug secret
-         env:
+      - name: Debug secret
+        env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          if [ -z "$OPENROUTER_API_KEY" ]; then
-           echo "API KEY IS EMPTY"
-          else
-           echo "API KEY EXISTS"
-          fi
+           if [ -z "$OPENROUTER_API_KEY" ]; then
+             echo "API KEY IS EMPTY"
+           else
+            echo "API KEY EXISTS"
+           fi
 
       - name: run cycle
         env:
