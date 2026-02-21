@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+console.log(DEBUG FROM RUN)JS:", process.env.OPENROUTER_API_KEY);
 /**
  * daimon agent loop — multi-step orchestrator with native tool calling
  *
