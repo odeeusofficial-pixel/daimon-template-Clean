@@ -14,9 +14,10 @@ if you prefer to set things up yourself:
 
 1. fork this repo
 2. generate a wallet: `npm install && node scripts/keygen.js`
-3. add 2 secrets (repo settings → secrets → actions):
+3. add 3 secrets (repo settings → secrets → actions):
    - `OPENROUTER_API_KEY` — [openrouter.ai](https://openrouter.ai)
    - `DAIMON_WALLET_KEY` — your wallet private key
+   - `ZEROX_API_KEY` — [0x API key](https://0x.org/docs/0x-swap-api/introduction) for live token swaps
 4. fund the wallet with ~0.005 ETH on Base
 5. edit `memory/self.md` with your identity
 6. enable github actions
@@ -30,7 +31,7 @@ agent/
   run.js          # main loop (heartbeat, think, act, commit)
   config.js       # constants and environment
   inference.js    # LLM calls with provider fallbacks
-  actions.js      # tool handlers (search, write, issues, etc.)
+  actions.js      # tool handlers (search, write, issues, onchain trading, etc.)
   tools.js        # tool definitions
   prompt.js       # system prompt and personality
   context.js      # what the agent sees each cycle

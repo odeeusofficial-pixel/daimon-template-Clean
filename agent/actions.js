@@ -4,7 +4,8 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
-const { REPO_ROOT } = require("./config");
+const { ethers } = require("ethers");
+const { REPO_ROOT, BASE_RPC, DAIMON_WALLET_KEY, ZEROX_API_KEY } = require("./config");
 const { githubAPI, addToProject } = require("./github");
 // inference import removed — web_search now uses DuckDuckGo directly
 
@@ -14,6 +15,31 @@ function log(msg) {
 
 const filesChanged = new Set();
 
+const BASE_CHAIN_ID = 8453;
+const ETH_SENTINEL = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function allowance(address,address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)",
+];
+
+function normalizeToken(token) {
+  if (!token) throw new Error("token is required");
+  if (token.toUpperCase() === "ETH") return ETH_SENTINEL;
+  return token;
+}
+
+function isNativeToken(token) {
+  return token === ETH_SENTINEL;
+}
+
+function getWallet() {
+  if (!DAIMON_WALLET_KEY) throw new Error("DAIMON_WALLET_KEY is not set");
+  const provider = new ethers.JsonRpcProvider(BASE_RPC);
+  return new ethers.Wallet(DAIMON_WALLET_KEY, provider);
+}
 
 // executes a tool call and returns the result string
 async function executeTool(name, args) {
@@ -284,6 +310,124 @@ async function executeTool(name, args) {
         return `memory search error: ${e.message}`;
       }
     }
+    case "get_token_balance": {
+      try {
+        const provider = new ethers.JsonRpcProvider(BASE_RPC);
+        const wallet = args.wallet || (DAIMON_WALLET_KEY ? new ethers.Wallet(DAIMON_WALLET_KEY).address : null);
+        if (!wallet) return "error: wallet not provided and DAIMON_WALLET_KEY is not set";
+
+        const token = normalizeToken(args.token);
+        if (isNativeToken(token)) {
+          const bal = await provider.getBalance(wallet);
+          return JSON.stringify({
+            wallet,
+            token: "ETH",
+            raw: bal.toString(),
+            formatted: ethers.formatEther(bal),
+          });
+        }
+
+        const contract = new ethers.Contract(token, ERC20_ABI, provider);
+        const [balance, symbol, decimals] = await Promise.all([
+          contract.balanceOf(wallet),
+          contract.symbol().catch(() => "TOKEN"),
+          contract.decimals().catch(() => 18),
+        ]);
+
+        return JSON.stringify({
+          wallet,
+          token,
+          symbol,
+          decimals,
+          raw: balance.toString(),
+          formatted: ethers.formatUnits(balance, decimals),
+        });
+      } catch (e) {
+        return `balance error: ${e.message}`;
+      }
+    }
+    case "trade_tokens": {
+      try {
+        const sellToken = normalizeToken(args.sellToken);
+        const buyToken = normalizeToken(args.buyToken);
+        const sellAmount = args.sellAmount?.toString();
+        const slippageBps = Number.isInteger(args.slippageBps) ? args.slippageBps : 100;
+        const dryRun = args.dryRun !== false;
+
+        if (!/^\d+$/.test(sellAmount || "")) return "trade error: sellAmount must be an integer string in base units";
+        if (!ZEROX_API_KEY) return "trade error: ZEROX_API_KEY is not set";
+
+        const wallet = getWallet();
+        const quoteParams = new URLSearchParams({
+          chainId: String(BASE_CHAIN_ID),
+          sellToken,
+          buyToken,
+          sellAmount,
+          taker: wallet.address,
+          slippageBps: String(slippageBps),
+        });
+
+        const quoteRes = await fetch(`https://api.0x.org/swap/allowance-holder/quote?${quoteParams.toString()}`, {
+          headers: {
+            "0x-api-key": ZEROX_API_KEY,
+            "0x-version": "v2",
+          },
+        });
+
+        const quote = await quoteRes.json().catch(() => ({}));
+        if (!quoteRes.ok) {
+          return `trade quote error: HTTP ${quoteRes.status} ${JSON.stringify(quote).slice(0, 300)}`;
+        }
+
+        if (dryRun) {
+          return JSON.stringify({
+            mode: "dry_run",
+            sellToken,
+            buyToken,
+            sellAmount,
+            expectedBuyAmount: quote.buyAmount,
+            minBuyAmount: quote.minBuyAmount,
+            gas: quote.transaction?.gas,
+            gasPrice: quote.transaction?.gasPrice,
+            allowanceTarget: quote.allowanceTarget,
+            issues: quote.issues || null,
+          });
+        }
+
+        if (!isNativeToken(sellToken)) {
+          const token = new ethers.Contract(sellToken, ERC20_ABI, wallet);
+          const allowanceTarget = quote?.allowanceTarget;
+          if (!allowanceTarget) return "trade error: quote missing allowanceTarget";
+          const allowance = await token.allowance(wallet.address, allowanceTarget);
+          if (allowance < BigInt(sellAmount)) {
+            const approveTx = await token.approve(allowanceTarget, BigInt(sellAmount));
+            await approveTx.wait();
+          }
+        }
+
+        const txReq = quote.transaction || {};
+        const sent = await wallet.sendTransaction({
+          to: txReq.to,
+          data: txReq.data,
+          value: txReq.value ? BigInt(txReq.value) : 0n,
+          gasLimit: txReq.gas ? BigInt(txReq.gas) : undefined,
+          gasPrice: txReq.gasPrice ? BigInt(txReq.gasPrice) : undefined,
+        });
+        const receipt = await sent.wait();
+
+        return JSON.stringify({
+          mode: "executed",
+          hash: sent.hash,
+          blockNumber: receipt?.blockNumber,
+          status: receipt?.status,
+          expectedBuyAmount: quote.buyAmount,
+          minBuyAmount: quote.minBuyAmount,
+        });
+      } catch (e) {
+        return `trade error: ${e.message}`;
+      }
+    }
+
     case "github_search": {
       const type = args.type || "repositories";
       log(`github search (${type}): ${args.query}`);

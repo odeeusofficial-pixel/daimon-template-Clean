@@ -267,6 +267,60 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_token_balance",
+      description: "Read wallet balance on Base for ETH or any ERC-20 token. Use this before trading so you don't overspend.",
+      parameters: {
+        type: "object",
+        properties: {
+          token: {
+            type: "string",
+            description: "Token address on Base, or 'ETH' for native ETH",
+          },
+          wallet: {
+            type: "string",
+            description: "Optional wallet address. Defaults to your own DAIMON wallet.",
+          },
+        },
+        required: ["token"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "trade_tokens",
+      description: "Trade tokens on Base using 0x Swap API quotes + transaction execution. Supports dry-run quote mode for planning.",
+      parameters: {
+        type: "object",
+        properties: {
+          sellToken: {
+            type: "string",
+            description: "Token address to sell, or 'ETH'",
+          },
+          buyToken: {
+            type: "string",
+            description: "Token address to buy, or 'ETH'",
+          },
+          sellAmount: {
+            type: "string",
+            description: "Exact raw amount to sell in base units (wei for ETH, token decimals for ERC-20)",
+          },
+          slippageBps: {
+            type: "integer",
+            description: "Max slippage in basis points. Default 100 (1%).",
+          },
+          dryRun: {
+            type: "boolean",
+            description: "If true, only returns quote data and does not send a transaction. Default true.",
+          },
+        },
+        required: ["sellToken", "buyToken", "sellAmount"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "github_search",
       description: "Search GitHub for code, repositories, or issues across all of GitHub. Use to find examples, libraries, or how others solved problems.",
       parameters: {
