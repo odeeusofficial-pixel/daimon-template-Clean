@@ -44,6 +44,7 @@ ${ctx.lastCycleSummary}` : ""}
 - network: Base (chain ID 8453)
 - private key: DAIMON_WALLET_KEY env var
 - RPC: BASE_RPC env var (fallback: https://mainnet.base.org)
+- trading tools: get_token_balance() for balances, trade_tokens() for swap quote + execution (set dryRun=false to execute)
 
 ## financial limits
 - transactions under $50: go ahead

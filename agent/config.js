@@ -30,9 +30,10 @@ const SAFETY_MODEL = MODELS[LLM_PROVIDER].safety;
 const DAIMON_WALLET_KEY = process.env.DAIMON_WALLET_KEY;
 // const SAFE_ADDRESS = "0x0000000000000000000000000000000000000000"; // uncomment + set if you use a Safe
 const BASE_RPC = process.env.BASE_RPC || "https://mainnet.base.org";
+const ZEROX_API_KEY = process.env.ZEROX_API_KEY || "";
 
 module.exports = {
   REPO_ROOT, OWNER, REPO, LLM_KEY, LLM_PROVIDER, GROQ_KEY, GH_TOKEN,
   MODEL, MAX_TOKENS, MAX_STEPS, SAFETY_MODEL,
-  DAIMON_WALLET_KEY, BASE_RPC,
+  DAIMON_WALLET_KEY, BASE_RPC, ZEROX_API_KEY,
 };
